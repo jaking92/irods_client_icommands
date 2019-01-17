@@ -85,6 +85,7 @@ set(
   itrim
   iuserinfo
   izonereport
+  test_rcDataObjRead
   )
 
 foreach(EXECUTABLE ${IRODS_CLIENT_ICOMMANDS_EXECUTABLES})
