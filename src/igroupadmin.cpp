@@ -5,6 +5,7 @@
 #include "rodsClient.h"
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
+#include "irods_user_info.hpp"
 
 rcComm_t *Conn;
 
@@ -14,103 +15,6 @@ int printCount = 0;
 char myZone[50];
 
 void usage( char *subOpt );
-
-/*
- print the results of a general query for the showGroup function below
- */
-void
-printGenQueryResultsForGroup( genQueryOut_t *genQueryOut ) {
-    int i, j;
-    for ( i = 0; i < genQueryOut->rowCnt; i++ ) {
-        char *tResult;
-        for ( j = 0; j < genQueryOut->attriCnt; j++ ) {
-            tResult = genQueryOut->sqlResult[j].value;
-            tResult += i * genQueryOut->sqlResult[j].len;
-            if ( j > 0 ) {
-                printf( "#%s", tResult );
-            }
-            else {
-                printf( "%s", tResult );
-            }
-        }
-        printf( "\n" );
-    }
-}
-
-
-/*
- Via a general query, show group information
- */
-void
-showGroup( char *groupName ) {
-    genQueryInp_t genQueryInp;
-    genQueryOut_t *genQueryOut;
-    int selectIndexes[10];
-    int selectValues[10];
-    int conditionIndexes[10];
-    char *conditionValues[10];
-    char conditionString1[200];
-    char conditionString2[200];
-    int status;
-
-    memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
-
-    if ( groupName != NULL && *groupName != '\0' ) {
-        printf( "Members of group %s:\n", groupName );
-    }
-    selectIndexes[0] = COL_USER_NAME;
-    selectValues[0] = 0;
-    selectIndexes[1] = COL_USER_ZONE;
-    selectValues[1] = 0;
-    genQueryInp.selectInp.inx = selectIndexes;
-    genQueryInp.selectInp.value = selectValues;
-    if ( groupName != NULL && *groupName != '\0' ) {
-        genQueryInp.selectInp.len = 2;
-    }
-    else {
-        genQueryInp.selectInp.len = 1;
-    }
-
-    conditionIndexes[0] = COL_USER_TYPE;
-    snprintf( conditionString1, sizeof( conditionString1 ), "='rodsgroup'" );
-    conditionValues[0] = conditionString1;
-
-    genQueryInp.sqlCondInp.inx = conditionIndexes;
-    genQueryInp.sqlCondInp.value = conditionValues;
-    genQueryInp.sqlCondInp.len = 1;
-
-    if ( groupName != NULL && *groupName != '\0' ) {
-
-        snprintf( conditionString1, sizeof( conditionString1 ), "!='rodsgroup'" );
-
-        conditionIndexes[1] = COL_USER_GROUP_NAME;
-        snprintf( conditionString2, sizeof( conditionString2 ), "='%s'", groupName );
-        conditionValues[1] = conditionString2;
-        genQueryInp.sqlCondInp.len = 2;
-    }
-
-    genQueryInp.maxRows = 50;
-    genQueryInp.continueInx = 0;
-    genQueryInp.condInput.len = 0;
-
-    status = rcGenQuery( Conn, &genQueryInp, &genQueryOut );
-    if ( status == CAT_NO_ROWS_FOUND ) {
-        printf( "No rows found\n" );
-        return;
-    }
-    else {
-        printGenQueryResultsForGroup( genQueryOut );
-    }
-
-    while ( status == 0 && genQueryOut->continueInx > 0 ) {
-        genQueryInp.continueInx = genQueryOut->continueInx;
-        status = rcGenQuery( Conn, &genQueryInp, &genQueryOut );
-        if ( status == 0 ) {
-            printGenQueryResultsForGroup( genQueryOut );
-        }
-    }
-    return;
-}
 
 /*
  Prompt for input and parse into tokens
@@ -286,7 +190,29 @@ doCommand( char *cmdToken[] ) {
     }
 
     if ( strcmp( cmdToken[0], "lg" ) == 0 ) {
-        showGroup( cmdToken[1] );
+        if(cmdToken[1] && '\0' != *cmdToken[1]) {
+            try {
+                printf("%s", irods::get_printable_group_member_list_string(Conn, std::string{cmdToken[1]}).c_str());
+            } catch(const irods::exception& e) {
+                printf("%s", e.client_display_what());
+            }
+        }
+        else {
+            printf("%s", irods::get_printable_group_list_string(Conn).c_str());
+        }
+        return 0;
+    }
+
+    if ( strcmp( cmdToken[0], "lgd" ) == 0 ) {
+        if ( *cmdToken[1] == '\0' ) {
+            fprintf( stderr, "You must specify a group with the lgd command\n" );
+            return 0;
+        }
+        try {
+            printf("%s", irods::get_printable_group_info_string(Conn, std::string{cmdToken[1]}).c_str());
+        } catch(const irods::exception& e) {
+            printf("%s", e.client_display_what());
+        }
         return 0;
     }
 
@@ -470,6 +396,7 @@ void usageMain() {
         "Single or double quotes can be used to enter items with blanks.",
         "Commands are:",
         " lg [name] (list group info (user member list))",
+        " lgd name  (list group details)",
         " mkuser Name Password (make a user and set the initial password)",
         " atg groupName userName[#Zone] (add to group - add a user to a group)",
         " rfg groupName userName[#Zone] (remove from group - remove a user from a group)",
@@ -502,6 +429,12 @@ usage( char *subOpt ) {
         "members of that group.  Users are listed in the user#zone format.",
         "In addition to 'rodsadmin', any user can use this sub-command; this is",
         "of most value to 'groupadmin' users who can also atg, rfg, and mkuser.",
+        ""
+    };
+
+    char *lgdMsgs[] = {
+        " lgd name (list group details)",
+        "Lists some details about the user group.",
         ""
     };
 
@@ -540,6 +473,7 @@ usage( char *subOpt ) {
 
     char *subCmds[] = {
         "lg",
+        "lgd",
         "mkuser",
         "atg",
         "rfg",
@@ -550,6 +484,7 @@ usage( char *subOpt ) {
 
     char **pMsgs[] = {
         lgMsgs,
+        lgdMsgs,
         mkuserMsgs,
         atgMsgs,
         rfgMsgs,

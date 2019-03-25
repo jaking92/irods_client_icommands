@@ -10,6 +10,7 @@
 #include "irods_string_tokenize.hpp"
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
+#include "irods_user_info.hpp"
 
 #include <iostream>
 #include <algorithm>
@@ -248,101 +249,6 @@ getLocalZone() {
     return 0;
 }
 
-/*
-   print the results of a general query for the showGroup function below
-*/
-void // JMC - backport 4742
-printGenQueryResultsForGroup( genQueryOut_t *genQueryOut ) {
-    int i, j;
-    for ( i = 0; i < genQueryOut->rowCnt; i++ ) {
-        char *tResult;
-        for ( j = 0; j < genQueryOut->attriCnt; j++ ) {
-            tResult = genQueryOut->sqlResult[j].value;
-            tResult += i * genQueryOut->sqlResult[j].len;
-            if ( j > 0 ) {
-                printf( "#%s", tResult );
-            }
-            else {
-                printf( "%s", tResult );
-            }
-        }
-        printf( "\n" );
-    }
-}
-
-int
-showGroup( char *groupName ) { // JMC - backport 4742
-    // =-=-=-=-=-=-=-
-    // JMC - backport 4742
-    genQueryInp_t  genQueryInp;
-    genQueryOut_t *genQueryOut = 0;
-    int selectIndexes[10];
-    int selectValues[10];
-    int conditionIndexes[10];
-    char *conditionValues[10];
-    char conditionString1[BIG_STR];
-    char conditionString2[BIG_STR];
-    int status;
-    memset( &genQueryInp, 0, sizeof( genQueryInp_t ) );
-    if ( groupName != NULL && *groupName != '\0' ) {
-        printf( "Members of group %s:\n", groupName );
-
-    }
-    selectIndexes[0] = COL_USER_NAME;
-    selectValues[0] = 0;
-    selectIndexes[1] = COL_USER_ZONE;
-    selectValues[1] = 0;
-    genQueryInp.selectInp.inx = selectIndexes;
-    genQueryInp.selectInp.value = selectValues;
-    if ( groupName != NULL && *groupName != '\0' ) {
-        genQueryInp.selectInp.len = 2;
-    }
-    else {
-        genQueryInp.selectInp.len = 1;
-    }
-
-    conditionIndexes[0] = COL_USER_TYPE;
-    sprintf( conditionString1, "='rodsgroup'" );
-    conditionValues[0] = conditionString1;
-
-    genQueryInp.sqlCondInp.inx = conditionIndexes;
-    genQueryInp.sqlCondInp.value = conditionValues;
-    genQueryInp.sqlCondInp.len = 1;
-
-    if ( groupName != NULL && *groupName != '\0' ) {
-
-        sprintf( conditionString1, "!='rodsgroup'" );
-
-        conditionIndexes[1] = COL_USER_GROUP_NAME;
-        sprintf( conditionString2, "='%s'", groupName );
-        conditionValues[1] = conditionString2;
-        genQueryInp.sqlCondInp.len = 2;
-    }
-
-    genQueryInp.maxRows = 50;
-    genQueryInp.continueInx = 0;
-    genQueryInp.condInput.len = 0;
-
-    status = rcGenQuery( Conn, &genQueryInp, &genQueryOut );
-    if ( status == CAT_NO_ROWS_FOUND ) {
-        fprintf( stderr, "No rows found\n" );
-        return -1;
-    }
-    else {
-        printGenQueryResultsForGroup( genQueryOut );
-    }
-
-    while ( status == 0 && genQueryOut->continueInx > 0 ) {
-        genQueryInp.continueInx = genQueryOut->continueInx;
-        status = rcGenQuery( Conn, &genQueryInp, &genQueryOut );
-        if ( status == 0 ) {
-            printGenQueryResultsForGroup( genQueryOut );
-        }
-    }
-    return 0;
-    // =-=-=-=-=-=-=-
-}
-
 int
 showFile( char *file ) {
     simpleQueryInp_t simpleQueryInp;
@@ -397,26 +303,6 @@ showDir( char *dir ) {
 }
 
 int
-showUser( char *user ) {
-    simpleQueryInp_t simpleQueryInp;
-
-    memset( &simpleQueryInp, 0, sizeof( simpleQueryInp_t ) );
-    simpleQueryInp.control = 0;
-    if ( *user != '\0' ) {
-        simpleQueryInp.form = 2;
-        simpleQueryInp.sql = "select * from R_USER_MAIN where user_name=?";
-        simpleQueryInp.arg1 = user;
-        simpleQueryInp.maxBufSize = 1024;
-    }
-    else {
-        simpleQueryInp.form = 1;
-        simpleQueryInp.sql = "select user_name||'#'||zone_name from R_USER_MAIN where user_type_name != 'rodsgroup'";
-        simpleQueryInp.maxBufSize = 1024;
-    }
-    return doSimpleQuery( simpleQueryInp );
-}
-
-int
 showUserAuth( char *user, char *zone ) {
     simpleQueryInp_t simpleQueryInp;
 
@@ -454,28 +340,6 @@ showUserAuthName( char *authName )
     simpleQueryInp.sql = "select user_name, user_auth_name from R_USER_AUTH, R_USER_MAIN where R_USER_AUTH.user_id = R_USER_MAIN.user_id and R_USER_AUTH.user_auth_name=?";
     simpleQueryInp.arg1 = authName;
     simpleQueryInp.maxBufSize = 1024;
-    return doSimpleQuery( simpleQueryInp );
-}
-
-int
-showUserOfZone( char *zone, char *user ) {
-    simpleQueryInp_t simpleQueryInp;
-
-    memset( &simpleQueryInp, 0, sizeof( simpleQueryInp_t ) );
-    simpleQueryInp.control = 0;
-    if ( *user != '\0' ) {
-        simpleQueryInp.form = 2;
-        simpleQueryInp.sql = "select * from R_USER_MAIN where user_name=? and zone_name=?";
-        simpleQueryInp.arg1 = user;
-        simpleQueryInp.arg2 = zone;
-        simpleQueryInp.maxBufSize = 1024;
-    }
-    else {
-        simpleQueryInp.form = 1;
-        simpleQueryInp.sql = "select user_name from R_USER_MAIN where zone_name=? and user_type_name != 'rodsgroup'";
-        simpleQueryInp.arg1 = zone;
-        simpleQueryInp.maxBufSize = 1024;
-    }
     return doSimpleQuery( simpleQueryInp );
 }
 
@@ -777,18 +641,15 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
         return -1;
     }
     if ( strcmp( cmdToken[0], "lu" ) == 0 ) {
-        char userName[NAME_LEN] = "";
-        char zoneName[NAME_LEN] = "";
-        int status = parseUserName( cmdToken[1], userName, zoneName );
-        if ( status < 0 ) {
-            return status;
+        if('\0' == *cmdToken[1]) {
+            printf("%s", irods::get_printable_user_list_string(Conn).c_str());
+            return 0;
         }
 
-        if ( zoneName[0] != '\0' ) {
-            showUserOfZone( zoneName, userName );
-        }
-        else {
-            showUser( cmdToken[1] );
+        try {
+            printf("%s", irods::get_printable_user_info_string(Conn, std::string{cmdToken[1]}).c_str());
+        } catch(const irods::exception& e) {
+            printf("%s", e.client_display_what());
         }
         return 0;
     }
@@ -822,15 +683,27 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
         return 0;
     }
     if ( strcmp( cmdToken[0], "lg" ) == 0 ) {
-        showGroup( cmdToken[1] );
+        if(cmdToken[1] && '\0' != *cmdToken[1]) {
+            try {
+                printf("%s", irods::get_printable_group_member_list_string(Conn, std::string{cmdToken[1]}).c_str());
+            } catch(const irods::exception& e) {
+                printf("%s", e.client_display_what());
+            }
+        }
+        else {
+            printf("%s", irods::get_printable_group_list_string(Conn).c_str());
+        }
         return 0;
     }
     if ( strcmp( cmdToken[0], "lgd" ) == 0 ) {
         if ( *cmdToken[1] == '\0' ) {
             fprintf( stderr, "You must specify a group with the lgd command\n" );
+            return 0;
         }
-        else {
-            showUser( cmdToken[1] );
+        try {
+            printf("%s", irods::get_printable_group_info_string(Conn, std::string{cmdToken[1]}).c_str());
+        } catch(const irods::exception& e) {
+            printf("%s", e.client_display_what());
         }
         return 0;
     }

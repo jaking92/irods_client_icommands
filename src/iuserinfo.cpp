@@ -9,6 +9,7 @@
 #include "rodsClient.h"
 #include "irods_client_api_table.hpp"
 #include "irods_pack_table.hpp"
+#include "irods_user_info.hpp"
 
 #include "irods_query.hpp"
 #include <boost/format.hpp>
@@ -20,87 +21,14 @@ rodsEnv myEnv;
 
 void usage();
 
-struct userinfo_t {
-    char* user_name;
-    char* zone_name;
-};
-
-std::string construct_userinfo_query_string(
-    const userinfo_t& _info,
-    const std::string& _select_string) {
-    return std::string{(boost::format("SELECT %s WHERE USER_NAME = '%s' AND USER_ZONE = '%s'") %
-                        _select_string % _info.user_name % _info.zone_name).str()};
-}
-
-bool print_general_info(const userinfo_t& _info) {
-    // Construct query object for listing info for specified user
-    const std::string select{
-        "USER_NAME, USER_ID, USER_TYPE, USER_ZONE, USER_INFO, USER_COMMENT, USER_CREATE_TIME, USER_MODIFY_TIME"};
-    irods::query<rcComm_t> qobj{Conn, construct_userinfo_query_string(_info, select)};
-
-    // Ensure that user exists
-    if (qobj.begin() == qobj.end()) {
-        return false;
-    }
-
-    // Print information concerning found users
-    const std::vector<std::string> general_info_labels{
-        "name", "id", "type", "zone", "info", "comment", "create time", "modify time"};
-    int i{};
-    for (const auto& selections: *qobj.begin()) {
-        if (std::string::npos != (general_info_labels[i].find("time"))) {
-            char local_time[TIME_LEN]{};
-            getLocalTimeFromRodsTime(selections.c_str(), local_time);
-            printf("%s: %s: %s\n", general_info_labels[i].c_str(), selections.c_str(), local_time);
-        }
-        else {
-            printf("%s: %s\n", general_info_labels[i].c_str(), selections.c_str());
-        }
-        i++;
-    }
-    return true;
-}
-
-void print_auth_info(const userinfo_t& _info) {
-    irods::query<rcComm_t> qobj{Conn, construct_userinfo_query_string(_info, "USER_DN")};
-    for (const auto& result: qobj) {
-        printf("GSI DN or Kerberos Principal Name: %s\n", result[0].c_str());
-    }
-}
-
-void print_group_info(const userinfo_t& _info) {
-    irods::query<rcComm_t> qobj{Conn, construct_userinfo_query_string(_info, "USER_GROUP_NAME")};
-    if (qobj.begin() == qobj.end()) {
-        printf("Not a member of any group\n");
-        return;
-    }
-
-    for (const auto& result: qobj) {
-        printf("member of group: %s\n", result[0].c_str());
-    }
-}
-
 int
 showUser(const char *name) {
-    char user_name[NAME_LEN]{};
-    char zone_name[NAME_LEN]{};
-    int status = parseUserName(name, user_name, zone_name);
-    if (status < 0) {
-        printf("Failed parsing input:[%s]\n", name);
-        return status;
+    try {
+        printf("%s", irods::get_printable_user_info_string(Conn, std::string{name}).c_str());
+    } catch(const irods::exception& e) {
+        printf("%s", e.client_display_what());
+        return e.code();
     }
-    if (std::string(zone_name).empty()) {
-        snprintf(zone_name, sizeof(zone_name), "%s", myEnv.rodsZone);
-    }
-    const userinfo_t info{user_name, zone_name};
-
-    if (!print_general_info(info)) {
-        printf("User %s#%s does not exist.\n", info.user_name, info.zone_name);
-        return 0;
-    }
-    print_auth_info(info);
-    print_group_info(info);
-
     return 0;
 }
 
@@ -112,7 +40,7 @@ main( int argc, char **argv ) {
     int status, nArgs;
     rErrMsg_t errMsg;
 
-    rodsArguments_t myRodsArgs;
+    rodsArguments_t myRodsArgs{};
 
     rodsLogLevel( LOG_ERROR );
 
@@ -155,7 +83,7 @@ main( int argc, char **argv ) {
 
     nArgs = argc - myRodsArgs.optind;
 
-    if ( nArgs == 1 ) {
+    if (nArgs > 0) {
         status = showUser(argv[myRodsArgs.optind]);
     }
     else {
