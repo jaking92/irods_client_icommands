@@ -654,7 +654,9 @@ doCommand( char *cmdToken[], rodsArguments_t* _rodsArgs = 0 ) {
         return 0;
     }
     if ( strcmp( cmdToken[0], "luz" ) == 0 ) {
-        showUserOfZone( cmdToken[1], cmdToken[2] );
+        fprintf( stderr, "luz is deprecated.\n"
+                 "Please use lu and filter results on the desired zone name instead.\n"
+                 "(e.g. 'iadmin lu | grep tempZone')\n");
         return 0;
     }
     if ( strcmp( cmdToken[0], "lt" ) == 0 ) {
@@ -1461,7 +1463,7 @@ void usageMain() {
         " lgd name  (list group details)",
         " lf DataId (list file details; DataId is the number (from ls))",
         " mkuser Name[#Zone] Type (make user)",
-        " moduser Name[#Zone] [ type | zone | comment | info | password ] newValue",
+        " moduser Name[#Zone] [ type | comment | info | password ] newValue",
         " aua Name[#Zone] Auth-Name (add user authentication-name (GSI/Kerberos)",
         " rua Name[#Zone] Auth-Name (remove user authentication name (GSI/Kerberos)",
         " rpp Name  (remove PAM-derived Password for user Name)",
@@ -1514,7 +1516,7 @@ usage( char *subOpt ) {
         "If you include a user name, more detailed information is provided.",
         "Usernames can include the zone preceded by #, for example rods#tempZone.",
         "Users are listed in the userName#ZoneName form.",
-        "Also see the 'luz', 'lz', and 'iuserinfo' commands.",
+        "Also see the 'lz' and 'iuserinfo' commands.",
         ""
     };
     char *luaMsgs[] = {
@@ -1533,14 +1535,6 @@ usage( char *subOpt ) {
         "For example:",
         "  luan '/C=US/O=INC/OU=DICE/CN=Wayne Schroeder/UID=schroeder'",
         "will list the iRODS user(s) with the GSI DN, if any.",
-        ""
-    };
-    char *luzMsgs[] = {
-        "luz Zone [User] (list user info for a Zone; details if name entered)",
-        "list user information for users of a particular Zone.  ",
-        "Just 'luz Zonename' will briefly list currently defined users of that Zone.",
-        "If you include a user name, more detailed information is provided.",
-        "Also see the lu and lz commands.",
         ""
     };
     char *ltMsgs[] = {
@@ -1624,17 +1618,18 @@ usage( char *subOpt ) {
 
 
     char *moduserMsgs[] = {
-        " moduser Name[#Zone] [ type | zone | comment | info | password ] newValue",
+        " moduser Name[#Zone] [ type | comment | info | password ] newValue",
         "Modifies a field of an existing user definition.",
         "For password authentication, use moduser to set the password.",
         "(The password is transferred in a scrambled form to be more secure.)",
         "Long forms of the field names may also be used:",
-        "user_name, user_type_name, zone_name, user_info, or ",
-        "r_comment",
+        "user_name, user_type_name, user_info, or r_comment",
         "These are the names listed by 'lu' (and are the database table column names).",
         "Modifying the user's name (user_name) is not allowed; instead remove the user",
         "and create a new one.  rmuser/mkuser will remove (if empty) and create the",
         "needed collections too.",
+        "Modifying the uesr's type (user_type_name) to 'rodsgroup' is not allowed;",
+        "instead remove the user and create a group.",
         "For GSI or Kerberos authentication, use 'aua' to add one or more",
         "user auth names (GSI Distinquished Name (DN) or Kerberos principal name).",
         ""
@@ -2051,7 +2046,7 @@ usage( char *subOpt ) {
         ""
     };
 
-    char *subCmds[] = {"lu", "lua", "luan", "luz", "lt", "lr",
+    char *subCmds[] = {"lu", "lua", "luan", "lt", "lr",
                        "ls", "lz",
                        "lg", "lgd", "lf", "mkuser",
                        "moduser", "aua", "rua", "rpp",
@@ -2067,7 +2062,7 @@ usage( char *subOpt ) {
                        "help", "h"
                       };
 
-    char **pMsgs[] = { luMsgs, luaMsgs, luanMsgs, luzMsgs, ltMsgs, lrMsgs,
+    char **pMsgs[] = { luMsgs, luaMsgs, luanMsgs, ltMsgs, lrMsgs,
                        lsMsgs, lzMsgs,
                        lgMsgs, lgdMsgs, lfMsgs, mkuserMsgs,
                        moduserMsgs, auaMsgs, ruaMsgs, rppMsgs,
