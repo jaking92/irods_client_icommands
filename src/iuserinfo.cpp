@@ -22,9 +22,9 @@ rodsEnv myEnv;
 void usage();
 
 int
-showUser(const char *name) {
+showUser(const std::string& name) {
     try {
-        printf("%s", irods::get_printable_user_info_string(Conn, std::string{name}).c_str());
+        printf("%s", irods::get_printable_user_info_string(Conn, name).c_str());
     } catch(const irods::exception& e) {
         printf("%s", e.client_display_what());
         return e.code();
@@ -84,12 +84,11 @@ main( int argc, char **argv ) {
     nArgs = argc - myRodsArgs.optind;
 
     if (nArgs > 0) {
-        status = showUser(argv[myRodsArgs.optind]);
+        status = showUser(std::string{argv[myRodsArgs.optind]});
     }
     else {
-        const auto user_name{(boost::format("%s#%s") %
-                              myEnv.rodsUserName % myEnv.rodsZone).str().c_str()};
-        status = showUser(user_name);
+        status = showUser((boost::format("%s#%s") %
+                          myEnv.rodsUserName % myEnv.rodsZone).str());
     }
 
     printErrorStack( Conn->rError );
