@@ -82,6 +82,7 @@ set(
   iscan
   istream
   isysmeta
+  itears
   iticket
   itrim
   iunreg
